@@ -533,12 +533,38 @@ function call(fn) {
     }).catch(function () { clearTimeout(tm); netErr(); });
   });
 }
-function api(fn) {
-  var args = [S.token].concat(Array.prototype.slice.call(arguments, 1));
-  return call.apply(null, [fn].concat(args)).catch(function (e) {
+/* Cache baca (admin): pindah menu terasa instan. Data lama ditampilkan dulu, lalu diperbarui di latar
+ * belakang bila sudah > 45 dtk. Cache dikosongkan setiap ada perubahan data (simpan/hapus/verifikasi dst). */
+var RD = { apiAdminDashboard: 1, apiTenagaList: 1, apiPresensiList: 1, apiLaporanList: 1, apiRekap: 1, apiRekapVolume: 1, apiRingkasan: 1, apiAuditList: 1, apiPengaturanGet: 1 };
+var RW = /(Simpan|Hapus|Import|ResetPin|Verif|Koreksi|Kunci|Ganti|Login|Logout)/;
+var RC = {}, RFRESH = {};
+function apiRaw(fn, args) {
+  return call.apply(null, [fn, S.token].concat(args)).catch(function (e) {
     if (e.code === 'AUTH') { logout(true, e.message); }
     throw e;
   });
+}
+function api(fn) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  if (RD[fn]) {
+    var key = fn + '|' + JSON.stringify(args), c = RC[key];
+    if (c) {
+      if (Date.now() - c.t > 45000 && !RFRESH[key]) {
+        RFRESH[key] = 1;
+        apiRaw(fn, args).then(function (d) {
+          var j = JSON.stringify(d), changed = j !== c.j;
+          RC[key] = { t: Date.now(), j: j, pg: c.pg };
+          if (changed && !$('.modal-bg') && document.activeElement && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && S.role === 'admin') {
+            var pg = ({ dash: aDash, ten: aTenaga, pres: aPresensi, lap: aLaporan, rekap: aRekap, set: aSetting, audit: aAudit })[aPage];
+            if (pg && aPage === c.pg) pg();
+          }
+        }).catch(function () {}).then(function () { delete RFRESH[key]; });
+      }
+      return Promise.resolve(JSON.parse(c.j));
+    }
+    return apiRaw(fn, args).then(function (d) { RC[key] = { t: Date.now(), j: JSON.stringify(d), pg: (typeof aPage !== 'undefined' ? aPage : '') }; return d; });
+  }
+  return apiRaw(fn, args).then(function (d) { if (RW.test(fn)) RC = {}; return d; });
 }
 function busy(fn, msg) {
   loading(true, msg);
@@ -1252,6 +1278,7 @@ function frow(label, html) { return '<div><label>' + esc(label) + '</label>' + h
 
 /* ---------- dashboard ---------- */
 function aDash() {
+  setTimeout(function () { if (S.role === 'admin' && aPage === 'dash') api('apiTenagaList').catch(function () {}); }, 1500);
   api('apiAdminDashboard').then(function (d) {
     var h = '<div class="dhead"><h2>Dashboard</h2><span class="datechip">' + nv('cal') + esc(tglId(d.tanggal)) + '</span></div><div class="dgrid"><div>' +
       '<div class="hero2"><span class="hico">' + nv('ten') + '</span><div><small>Tenaga aktif</small><b>' + esc(d.total_aktif) + '</b></div></div>' +
