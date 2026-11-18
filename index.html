@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>e-Outsourcing DLH Kab. Bengkalis</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  html, body { margin: 0; height: 100%; background: #f4f6f8; font-family: system-ui, sans-serif; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+  #fallback {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    display: none; padding: 10px 14px; background: #fff8e1;
+    border-top: 1px solid #e0c97a; font-size: 14px; text-align: center;
+  }
+  #fallback a { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<iframe id="app"
+  src="https://script.google.com/macros/s/AKfycbwkK3IjTqxrzOOtOfJJT_4X9OVjsdZ1Vse10s-fR0pvSNXTq1XOBzYklWaipB3nlOqWyQ/exec"
+  title="e-Outsourcing"
+  allow="geolocation *; camera *; microphone *; clipboard-write *"
+  referrerpolicy="no-referrer"></iframe>
+
+<div id="fallback">
+  Aplikasi tidak tampil? Buka langsung:
+  <a href="https://script.google.com/macros/s/AKfycbwkK3IjTqxrzOOtOfJJT_4X9OVjsdZ1Vse10s-fR0pvSNXTq1XOBzYklWaipB3nlOqWyQ/exec" target="_top">e-Outsourcing</a>
+</div>
+
+<script>
+  // Tampilkan tautan cadangan jika iframe belum termuat dalam 12 detik.
+  var f = document.getElementById('app'), loaded = false;
+  f.addEventListener('load', function () { loaded = true; });
+  setTimeout(function () { if (!loaded) document.getElementById('fallback').style.display = 'block'; }, 12000);
+</script>
+</body>
+</html>
