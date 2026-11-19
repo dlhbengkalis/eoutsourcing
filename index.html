@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b1b5c">
-  <style>
+<style>
 :root{
   --p:#0a47e6; --p2:#1f63ff; --pl:#e4edff; --bg:#eef4ff; --navy:#0b1b5c; --card:#fff; --tx:#0f1d44; --mu:#5a6a8c;
   --bd:#d6e0f3; --danger:#c0392b; --warn:#b9770e; --info:#1f6fb2; --r:12px;
@@ -466,6 +466,7 @@ html.vwfix,html.vwfix body,html.vwfix #app,html.vwfix .tenaga .container{width:v
 html.vwfix .bottomnav,html.vwfix #toasts,html.vwfix .modal-bg,html.vwfix #loading{left:0;right:auto;width:var(--vw)!important}
 html.vwfix .tenaga .topbar,html.vwfix .tenaga .hero,html.vwfix .tenaga .card,html.vwfix .tenaga .stat{max-width:100%}
 </style>
+
   <title>e-Outsourcing DLH Kab. Bengkalis</title>
 </head>
 <body data-app="e-Outsourcing">
@@ -473,7 +474,7 @@ html.vwfix .tenaga .topbar,html.vwfix .tenaga .hero,html.vwfix .tenaga .card,htm
   <div id="printArea"></div>
   <div id="toasts"></div>
   <div id="loading" class="hidden"><div class="spin"></div><div id="loadingMsg">Memuat…</div></div>
-  <script>
+<script>
 (function () {
 'use strict';
 
@@ -1295,6 +1296,13 @@ function kpi(l, v, c, i) { return '<div class="kpi ico ' + (c || '') + '"><span 
 
 /* ---------- data tenaga ---------- */
 var TFIELDS = ['no_id', 'nama', 'no_nik', 'pddk', 'tpt_lhr', 'tgl_lhr', 'kategori', 'alamat', 'kelurahan_desa', 'kecamatan', 'bidang', 'jns_kelamin', 'no_hp', 'status'];
+function lahirISO(t) {
+  var s = String(t['Tanggal Lahir'] || '').trim(), m;
+  if ((m = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(s))) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  s = String(t.tgl_lhr || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+}
+function lahirTxt(t) { return String(t['Tanggal Lahir'] || t.tgl_lhr || ''); }
 function aTenaga() {
   api('apiTenagaList').then(function (list) { S.tenaga = list; drawTenaga(); }).catch(onErr);
 }
@@ -1302,7 +1310,7 @@ function drawTenaga() {
   var v = $('#view');
   function uniq(list, key, extra) { var m = {}; (extra || []).forEach(function (x) { if (x) m[x] = true; }); list.forEach(function (t) { if (t[key]) m[t[key]] = true; }); return Object.keys(m).sort(); }
   v.innerHTML = '<div class="row mb"><h2 style="margin:0">Data Tenaga Outsourcing</h2><span class="spacer"></span>' +
-    '<button class="btn btn-sm" id="exx">' + ic('download') + ' XLSX</button><button class="btn btn-sm" id="prt">' + ic('printer') + ' Cetak</button>' + (isSuper() ? '<button class="btn btn-sm" id="imp">' + ic('upload') + ' Impor</button><button class="btn btn-primary btn-sm" id="add">' + ic('plus') + ' Tambah</button>' : '') + '</div>' +
+    '<button class="btn btn-sm" id="exx">' + ic('download') + ' XLSX</button><button class="btn btn-sm" id="prt">' + ic('printer') + ' Cetak</button>' + (isSuper() ? '<button class="btn btn-primary btn-sm" id="add">' + ic('plus') + ' Tambah</button>' : '') + '</div>' +
     '<div class="filters"><div><label>Cari</label><input id="fq" placeholder="Nama / NIK / No. ID / kategori"></div>' +
     '<div><label>Kategori</label><select id="fk">' + optsHtml(uniq(S.tenaga, 'kategori', S.opsi.kategori), '', 'Semua kategori') + '</select></div>' +
     '<div><label>Bidang</label><select id="fb">' + optsHtml(S.opsi.bidang, '', 'Semua bidang') + '</select></div>' +
@@ -1317,9 +1325,9 @@ function drawTenaga() {
   function draw() {
     var rows = filt();
     $('#tb').innerHTML = '<small class="muted">' + rows.length + ' dari ' + S.tenaga.length + ' tenaga</small>' + tbl(
-      ['No. ID', 'Nama', 'NIK', 'L/P', 'Kategori', 'Bidang', 'Kecamatan', 'No. HP', 'Status', ''],
-      rows.map(function (t) {
-        return '<tr><td>' + esc(t.no_id) + '</td><td><b>' + esc(t.nama) + '</b></td><td style="white-space:nowrap">' + esc(t.no_nik) + '</td><td>' + esc(t.jns_kelamin) + '</td><td>' + esc(t.kategori) + '</td><td>' + esc(t.bidang) + '</td><td>' + esc(t.kecamatan) + '</td><td>' + esc(t.no_hp) + '</td><td>' + '<span class="badge ' + (t.status === 'Aktif' ? 'b-ok' : 'b-bad') + '">' + esc(t.status) + '</span>' + '</td>' +
+      ['Nama', 'Tanggal Lahir', 'Kategori', 'Bidang', 'Kecamatan', 'No', ''],
+      rows.map(function (t, i) {
+        return '<tr><td><b>' + esc(t.nama) + '</b></td><td style="white-space:nowrap">' + esc(lahirTxt(t)) + '</td><td>' + esc(t.kategori) + '</td><td>' + esc(t.bidang) + '</td><td>' + esc(t.kecamatan) + '</td><td>' + (i + 1) + '</td>' +
           '<td style="white-space:nowrap">' + (isSuper() ? '<span class="rowact"><button class="btn btn-sm btn-ico" data-e="' + esc(t.no_id) + '" title="Ubah" aria-label="Ubah">' + ic('edit') + '</button><button class="btn btn-sm btn-ico" data-r="' + esc(t.no_id) + '" title="Reset PIN" aria-label="Reset PIN">' + ic('key') + '</button><button class="btn btn-sm btn-ico btn-danger" data-d="' + esc(t.no_id) + '" title="Hapus" aria-label="Hapus">' + ic('trash') + '</button></span>' : '') + '</td></tr>';
       }));
     $$('#tb [data-e]').forEach(function (b) { b.onclick = function () { tenagaForm(S.tenaga.filter(function (t) { return t.no_id === b.getAttribute('data-e'); })[0]); }; });
@@ -1343,12 +1351,11 @@ function drawTenaga() {
   ['fq', 'fk', 'fb', 'fc'].forEach(function (i) { $('#' + i).oninput = draw; });
   draw();
   if ($('#add')) $('#add').onclick = function () { tenagaForm(null); };
-  if ($('#imp')) $('#imp').onclick = importForm;
-  var H = ['no_id', 'nama', 'no_nik', 'pddk', 'tpt_lhr', 'tgl_lhr', 'kategori', 'alamat', 'kelurahan_desa', 'kecamatan', 'bidang', 'jns_kelamin', 'no_hp', 'status'];
+  var H = ['no_id', 'nama', 'no_nik', 'pddk', 'tpt_lhr', 'tgl_lhr', 'Tanggal Lahir', 'kategori', 'alamat', 'kelurahan_desa', 'kecamatan', 'bidang', 'jns_kelamin', 'no_hp', 'status'];
   $('#exx').onclick = function () { downloadXlsx('data_tenaga_outsourcing.xlsx', 'Tenaga', H, filt().map(function (t) { return H.map(function (h) { return t[h]; }); })); };
   $('#prt').onclick = function () {
     printDoc('Data Tenaga Outsourcing', 'Dicetak ' + tglId(S.tanggal), ['No', 'No. ID', 'Nama', 'NIK', 'L/P', 'Pendidikan', 'TTL', 'Kategori', 'Bidang', 'Kecamatan', 'No. HP'],
-      filt().map(function (t, i) { return [i + 1, t.no_id, t.nama, t.no_nik, t.jns_kelamin, t.pddk, t.tpt_lhr + ', ' + tglId(t.tgl_lhr), t.kategori, t.bidang, t.kecamatan, t.no_hp]; }), {}, false);
+      filt().map(function (t, i) { return [i + 1, t.no_id, t.nama, t.no_nik, t.jns_kelamin, t.pddk, t.tpt_lhr + ', ' + (lahirISO(t) ? tglId(lahirISO(t)) : lahirTxt(t)), t.kategori, t.bidang, t.kecamatan, t.no_hp]; }), {}, false);
   };
 }
 
@@ -1361,7 +1368,7 @@ function tenagaForm(t) {
     frow('No. NIK (16 digit)', '<input name="no_nik" value="' + esc(t.no_nik) + '" inputmode="numeric" maxlength="16" required>') +
     frow('Jenis kelamin', '<select name="jns_kelamin"><option value="L"' + (t.jns_kelamin === 'L' ? ' selected' : '') + '>Laki-laki</option><option value="P"' + (t.jns_kelamin === 'P' ? ' selected' : '') + '>Perempuan</option></select>') +
     frow('Tempat lahir', '<input name="tpt_lhr" value="' + esc(t.tpt_lhr) + '">') +
-    frow('Tanggal lahir', '<input name="tgl_lhr" type="date" value="' + esc(t.tgl_lhr) + '" required>') +
+    frow('Tanggal lahir', '<input name="tgl_lhr" type="date" value="' + esc(lahirISO(t)) + '" required>') +
     frow('Pendidikan', '<select name="pddk">' + optsHtml(S.opsi.pddk, t.pddk, '—') + '</select>') +
     frow('Kategori', '<input name="kategori" list="dlk" value="' + esc(t.kategori) + '"><datalist id="dlk">' + S.opsi.kategori.map(function (k) { return '<option value="' + esc(k) + '">'; }).join('') + '</datalist>') +
     frow('Bidang', '<select name="bidang">' + optsHtml(S.opsi.bidang, t.bidang, '—') + '</select>') +
@@ -1420,37 +1427,6 @@ function bindPins(el, list) {
 function showPins(title, list) {
   var m = openModal(title, pinHtml(list), { wide: list.length > 1 });
   bindPins(m.el, list);
-}
-
-function importForm() {
-  var H = ['no_id', 'nama', 'no_nik', 'pddk', 'tpt_lhr', 'tgl_lhr', 'kategori', 'alamat', 'kelurahan_desa', 'kecamatan', 'bidang', 'jns_kelamin', 'no_hp'];
-  var m = openModal('Impor Data Tenaga',
-    '<p>Tempel data dari Excel/Google Sheets (baris pertama = nama kolom) atau isi CSV. Kolom: <code>' + H.join(', ') + '</code>.</p>' +
-    '<div class="warnbox">Format kolom <b>no_nik</b> dan <b>no_hp</b> sebagai <b>teks</b> di Excel agar angka nol di depan dan 16 digit NIK tidak berubah (mis. 3.17E+15). No. ID boleh kosong (dibuat otomatis). Tanggal lahir: yyyy-mm-dd atau dd/mm/yyyy. Jenis kelamin: L/P.</div>' +
-    '<button class="btn btn-sm" id="tpl" type="button">⬇ Unduh template CSV</button><textarea id="imt" style="min-height:160px;margin-top:8px" placeholder="Tempel di sini…"></textarea>' +
-    '<button class="btn btn-primary btn-block mt" id="go">Impor</button><div id="ir"></div>', { wide: true });
-  $('#tpl', m.el).onclick = function () { downloadCsv('template_tenaga.csv', H, [['', 'Contoh Nama', '\t1403010101900001', 'SMA/SMK', 'Bengkalis', '1990-01-01', 'Petugas kebersihan', 'Jl. Contoh No. 1', 'Contoh', 'Bengkalis', 'Pengelolaan Sampah dan Limbah B3', 'L', '\t081234567890']]); };
-  $('#go', m.el).onclick = function () {
-    var rows = parseTable($('#imt', m.el).value);
-    if (!rows.length) { toast('Data tidak terbaca. Pastikan ada baris judul dan minimal satu baris data.', 'err'); return; }
-    // dikirim bertahap (100 baris) karena setiap tenaga mendapat PIN acak sendiri
-    var tot = { berhasil: 0, dilewati: [], pin: [] };
-    function kirim(i) {
-      if (i >= rows.length) return Promise.resolve();
-      return api('apiTenagaImport', rows.slice(i, i + 100)).then(function (r) {
-        tot.berhasil += r.berhasil; tot.pin = tot.pin.concat(r.pin || []);
-        r.dilewati.forEach(function (s) { tot.dilewati.push({ baris: s.baris + i, alasan: s.alasan }); });
-        return kirim(i + 100);
-      });
-    }
-    busy(function () { return kirim(0); }, 'Mengimpor…').catch(function (e) { if (tot.berhasil) { toast('Impor terhenti setelah ' + tot.berhasil + ' baris: ' + e.message, 'err'); return; } throw e; }).then(function () {
-      $('#ir', m.el).innerHTML = '<div class="card mt"><b>' + tot.berhasil + '</b> baris berhasil diimpor, <b>' + tot.dilewati.length + '</b> dilewati.' +
-        (tot.dilewati.length ? '<ul>' + tot.dilewati.map(function (s) { return '<li>Baris ' + s.baris + ': ' + esc(s.alasan) + '</li>'; }).join('') + '</ul>' : '') + '</div>' +
-        (tot.pin.length ? '<div class="card mt">' + pinHtml(tot.pin) + '</div>' : '');
-      if (tot.pin.length) bindPins($('#ir', m.el), tot.pin);
-      aTenaga();
-    }).catch(onErr);
-  };
 }
 
 /* ---------- presensi (admin) ---------- */
@@ -1853,5 +1829,6 @@ if (saved) { S.token = saved; boot(); } else renderLogin();
 
 })();
 </script>
+
 </body>
 </html>
