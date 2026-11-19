@@ -685,7 +685,20 @@ function api(fn) {
     }
     return apiRaw(fn, args).then(function (d) { RC[key] = { t: Date.now(), j: JSON.stringify(d), pg: (typeof aPage !== 'undefined' ? aPage : '') }; return d; });
   }
-  return apiRaw(fn, args).then(function (d) { if (RW.test(fn)) RC = {}; return d; });
+  return apiRaw(fn, args).then(function (d) { if (RW.test(fn)) RC = {}; if (/^api(Presensi|LaporanSimpan)$/.test(fn)) RWC = {}; return d; });
+}
+/* Cache riwayat tenaga (per bulan): menu Laporan/Riwayat tampil seketika dari cache, lalu disegarkan di latar belakang
+ * bila data > 30 dtk. Dikosongkan setiap tenaga menyimpan presensi/laporan dan saat keluar. */
+var RWC = {};
+function rwGet(ym, cb) {
+  var c = RWC[ym];
+  if (c) cb(JSON.parse(c.j));
+  if (c && Date.now() - c.t < 30000) return Promise.resolve();
+  return apiRaw('apiRiwayat', [ym]).then(function (d) {
+    var j = JSON.stringify(d), changed = !c || c.j !== j;
+    RWC[ym] = { t: Date.now(), j: j };
+    if (changed) cb(d);
+  }).catch(function (e) { if (!c) throw e; });
 }
 function busy(fn, msg) {
   loading(true, msg);
@@ -932,7 +945,7 @@ function renderLogin(msg) {
   $('#lf').onsubmit = function (e) {
     e.preventDefault();
     busy(function () { return call('apiLogin', role, $('#lid').value, $('#lpw').value); }, 'Masuk…')
-      .then(function (r) { S.token = r.token; store('eo_token', r.token); return boot(); })
+      .then(function (r) { S.token = r.token; store('eo_token', r.token); return boot(r.boot); })
       .catch(onErr);
   };
 }
@@ -943,17 +956,22 @@ function logout(silent, msg) {
   var t = S.token;
   if (t && !silent) call('apiLogout', t);
   if (Q.timer) { clearInterval(Q.timer); Q.timer = null; }
-  S.token = null; S.user = null; S.tenaga = null; FC = {};
+  S.token = null; S.user = null; S.tenaga = null; FC = {}; RWC = {};
   store('eo_token', null);
   renderLogin(msg);
 }
 
-function boot() {
-  return busy(function () { return api('apiBootstrap'); }).then(function (d) {
+function boot(pre) {
+  var first = pre ? Promise.resolve(pre) : busy(function () { return api('apiBootstrap'); });
+  return first.then(function (d) {
     S.role = d.role; S.user = d.user; S.cfg = d.cfg; S.off = d.serverMs - Date.now(); S.tanggal = d.tanggal;
     S.presensi = d.presensi || null; S.laporan = d.laporan || []; S.opsi = d.opsi || {};
     if (S.user.wajib_ganti) { forceChange(); return; } // wajib ganti PIN/password dulu, baru tampilan dimuat
-    if (S.role === 'admin') renderAdmin(); else renderTenaga();
+    if (S.role === 'admin') renderAdmin(); else {
+      renderTenaga();
+      // isi cache riwayat bulan ini di latar belakang (dengan jeda acak agar tidak menumpuk saat banyak yang login bersamaan)
+      setTimeout(function () { if (S.token) rwGet(dateIso().substr(0, 7), function () {}).catch(function () {}); }, 2500 + Math.random() * 4000);
+    }
   }).catch(function (e) { if (e.code !== 'AUTH') { onErr(e); renderLogin(); } });
 }
 
@@ -1172,10 +1190,11 @@ function tLaporan() {
   var v = $('#view');
   var ym = dateIso().substr(0, 7);
   v.innerHTML = t2Page('Laporan Pekerjaan', blnId(ym));
-  $('#tb').innerHTML = '<div id="ll"><div class="empty">Memuat…</div></div>';
-  api('apiRiwayat', ym).then(function (d) {
+  if (!RWC[ym]) $('#tb').innerHTML = '<div id="ll"><div class="empty">Memuat…</div></div>';
+  else $('#tb').innerHTML = '<div id="ll"></div>';
+  rwGet(ym, function (d) {
     var ll = $('#ll');
-    if (!ll) return;
+    if (!ll || tPage !== 'lap') return;
     ll.innerHTML = (d.laporan.length ? '<button class="t2-btn pri" id="nw" style="margin:0 0 12px">' + nv('lap') + 'Buat laporan</button>' + d.laporan.map(lapCard).join('') :
       '<div class="t2-card">' + t2Empty('lap', 'Belum ada laporan bulan ini.') + '<button class="t2-btn pri" id="nw">' + nv('lap') + 'Buat laporan</button></div>');
     $('#nw', ll).onclick = function () { laporanForm(null); };
@@ -1272,8 +1291,8 @@ function tRiwayat() {
   }
   function load() {
     var val = $('#bl').value || ym;
-    $('#rw').innerHTML = '<div class="empty">Memuat…</div>';
-    api('apiRiwayat', val).then(function (d) { data = d; draw(); }).catch(onErr);
+    if (!RWC[val]) $('#rw').innerHTML = '<div class="empty">Memuat…</div>';
+    rwGet(val, function (d) { if (($('#bl') || {}).value !== val && $('#bl')) return; data = d; draw(); }).catch(onErr);
   }
   $$('.t2-seg button').forEach(function (b) {
     b.onclick = function () {
