@@ -1312,26 +1312,29 @@ function aTenaga() {
 }
 function drawTenaga() {
   var v = $('#view');
-  function uniq(list, key, extra) { var m = {}; (extra || []).forEach(function (x) { if (x) m[x] = true; }); list.forEach(function (t) { if (t[key]) m[t[key]] = true; }); return Object.keys(m).sort(); }
+  // urutan tetap; nilai lain yang ada di data ditambahkan di belakang
+  function ordered(list, key, fixed) { var out = fixed.slice(), seen = {}; fixed.forEach(function (x) { seen[x] = true; }); var extra = {}; list.forEach(function (t) { var x = t[key]; if (x && !seen[x]) extra[x] = true; }); return out.concat(Object.keys(extra).sort()); }
+  var KAT_ORD = ['Tenaga Administrasi', 'Tenaga Kebersihan', 'Tenaga Keamanan', 'Pengemudi', 'Operator Alat Berat'];
+  var TT_ORD = ['Bengkalis', 'Bantan', 'Bandar Laksamana', 'Bukit Batu', 'Siak Kecil', 'Mandau / Bathin Solapan', 'Pinggir / Talang Muandau', 'Rupat / Rupat Utara', 'Kabupaten'];
   v.innerHTML = '<div class="row mb"><h2 style="margin:0">Data Tenaga Outsourcing</h2><span class="spacer"></span>' +
     '<button class="btn btn-sm" id="exx">' + ic('download') + ' XLSX</button><button class="btn btn-sm" id="prt">' + ic('printer') + ' Cetak</button>' + (isSuper() ? '<button class="btn btn-primary btn-sm" id="add">' + ic('plus') + ' Tambah</button>' : '') + '</div>' +
     '<div class="filters"><div><label>Cari</label><input id="fq" placeholder="Nama / NIK / No. ID / kategori"></div>' +
-    '<div><label>Kategori</label><select id="fk">' + optsHtml(uniq(S.tenaga, 'kategori', S.opsi.kategori), '', 'Semua kategori') + '</select></div>' +
+    '<div><label>Kategori</label><select id="fk">' + optsHtml(ordered(S.tenaga, 'kategori', KAT_ORD), '', 'Semua kategori') + '</select></div>' +
     '<div><label>Bidang</label><select id="fb">' + optsHtml(S.opsi.bidang, '', 'Semua bidang') + '</select></div>' +
-    '<div><label>Kecamatan</label><select id="fc">' + optsHtml(uniq(S.tenaga, 'kecamatan'), '', 'Semua kecamatan') + '</select></div></div><div id="tb"></div>';
+    '<div><label>Tempat Tugas</label><select id="fc">' + optsHtml(ordered(S.tenaga, 'Tempat Tugas', TT_ORD), '', 'Semua tempat tugas') + '</select></div></div><div id="tb"></div>';
   function filt() {
     var q = $('#fq').value.toLowerCase(), k = $('#fk').value, b = $('#fb').value, c = $('#fc').value;
     return S.tenaga.filter(function (t) {
-      return (!k || t.kategori === k) && (!b || t.bidang === b) && (!c || t.kecamatan === c) &&
+      return (!k || t.kategori === k) && (!b || t.bidang === b) && (!c || t['Tempat Tugas'] === c) &&
         (!q || (t.nama + ' ' + t.no_nik + ' ' + t.no_id + ' ' + t.kategori).toLowerCase().indexOf(q) >= 0);
     });
   }
   function draw() {
     var rows = filt();
     $('#tb').innerHTML = '<small class="muted">' + rows.length + ' dari ' + S.tenaga.length + ' tenaga</small>' + tbl(
-      ['No', 'Nama', 'Tanggal Lahir', 'Kategori', 'Bidang', 'Kecamatan', ''],
+      ['No', 'Nama', 'Tanggal Lahir', 'Kategori', 'Bidang', 'Tempat Tugas', ''],
       rows.map(function (t, i) {
-        return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(t.nama) + '</b></td><td style="white-space:nowrap">' + esc(lahirTxt(t)) + '</td><td>' + esc(t.kategori) + '</td><td>' + esc(t.bidang) + '</td><td>' + esc(t.kecamatan) + '</td>' +
+        return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(t.nama) + '</b></td><td style="white-space:nowrap">' + esc(lahirTxt(t)) + '</td><td>' + esc(t.kategori) + '</td><td>' + esc(t.bidang) + '</td><td>' + esc(t['Tempat Tugas']) + '</td>' +
           '<td style="white-space:nowrap">' + (isSuper() ? '<span class="rowact"><button class="btn btn-sm btn-ico" data-e="' + esc(t.no_id) + '" title="Ubah" aria-label="Ubah">' + ic('edit') + '</button><button class="btn btn-sm btn-ico" data-r="' + esc(t.no_id) + '" title="Reset PIN" aria-label="Reset PIN">' + ic('key') + '</button><button class="btn btn-sm btn-ico btn-danger" data-d="' + esc(t.no_id) + '" title="Hapus" aria-label="Hapus">' + ic('trash') + '</button></span>' : '') + '</td></tr>';
       }));
     $$('#tb [data-e]').forEach(function (b) { b.onclick = function () { tenagaForm(S.tenaga.filter(function (t) { return t.no_id === b.getAttribute('data-e'); })[0]); }; });
@@ -1355,11 +1358,11 @@ function drawTenaga() {
   ['fq', 'fk', 'fb', 'fc'].forEach(function (i) { $('#' + i).oninput = draw; });
   draw();
   if ($('#add')) $('#add').onclick = function () { tenagaForm(null); };
-  var H = ['no_id', 'nama', 'no_nik', 'pddk', 'tpt_lhr', 'tgl_lhr', 'Tanggal Lahir', 'kategori', 'alamat', 'kelurahan_desa', 'kecamatan', 'bidang', 'jns_kelamin', 'no_hp', 'status'];
+  var H = ['no_id', 'nama', 'no_nik', 'pddk', 'tpt_lhr', 'tgl_lhr', 'Tanggal Lahir', 'kategori', 'alamat', 'kelurahan_desa', 'kecamatan', 'bidang', 'Tempat Tugas', 'jns_kelamin', 'no_hp', 'status'];
   $('#exx').onclick = function () { downloadXlsx('data_tenaga_outsourcing.xlsx', 'Tenaga', H, filt().map(function (t) { return H.map(function (h) { return t[h]; }); })); };
   $('#prt').onclick = function () {
-    printDoc('Data Tenaga Outsourcing', 'Dicetak ' + tglId(S.tanggal), ['No', 'No. ID', 'Nama', 'NIK', 'L/P', 'Pendidikan', 'TTL', 'Kategori', 'Bidang', 'Kecamatan', 'No. HP'],
-      filt().map(function (t, i) { return [i + 1, t.no_id, t.nama, t.no_nik, t.jns_kelamin, t.pddk, t.tpt_lhr + ', ' + (lahirISO(t) ? tglId(lahirISO(t)) : lahirTxt(t)), t.kategori, t.bidang, t.kecamatan, t.no_hp]; }), {}, false);
+    printDoc('Data Tenaga Outsourcing', 'Dicetak ' + tglId(S.tanggal), ['No', 'No. ID', 'Nama', 'NIK', 'L/P', 'Pendidikan', 'TTL', 'Kategori', 'Bidang', 'Tempat Tugas', 'No. HP'],
+      filt().map(function (t, i) { return [i + 1, t.no_id, t.nama, t.no_nik, t.jns_kelamin, t.pddk, t.tpt_lhr + ', ' + (lahirISO(t) ? tglId(lahirISO(t)) : lahirTxt(t)), t.kategori, t.bidang, t['Tempat Tugas'], t.no_hp]; }), {}, false);
   };
 }
 
