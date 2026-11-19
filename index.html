@@ -983,7 +983,7 @@ function logout(silent, msg) {
   var t = S.token;
   if (t && !silent) call('apiLogout', t);
   if (Q.timer) { clearInterval(Q.timer); Q.timer = null; }
-  S.token = null; S.user = null; S.tenaga = null; FC = {}; RWC = {};
+  S.token = null; S.user = null; S.tenaga = null; FC = {}; RWC = {}; RC = {};
   store('eo_token', null);
   renderLogin(msg);
 }
@@ -993,6 +993,7 @@ function boot(pre) {
   return first.then(function (d) {
     S.role = d.role; S.user = d.user; S.cfg = d.cfg; S.off = d.serverMs - Date.now(); S.tanggal = d.tanggal;
     S.presensi = d.presensi || null; S.laporan = d.laporan || []; S.opsi = d.opsi || {};
+    if (d.dash) RC['apiAdminDashboard|[]'] = { t: Date.now(), j: JSON.stringify(d.dash), pg: 'dash' }; // dashboard langsung tampil, tanpa panggilan tambahan
     if (S.user.wajib_ganti) { forceChange(); return; } // wajib ganti PIN/password dulu, baru tampilan dimuat
     if (S.role === 'admin') renderAdmin(); else {
       renderTenaga();
