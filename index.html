@@ -1325,9 +1325,9 @@ function drawTenaga() {
   function draw() {
     var rows = filt();
     $('#tb').innerHTML = '<small class="muted">' + rows.length + ' dari ' + S.tenaga.length + ' tenaga</small>' + tbl(
-      ['Nama', 'Tanggal Lahir', 'Kategori', 'Bidang', 'Kecamatan', 'No', ''],
+      ['No', 'Nama', 'Tanggal Lahir', 'Kategori', 'Bidang', 'Kecamatan', ''],
       rows.map(function (t, i) {
-        return '<tr><td><b>' + esc(t.nama) + '</b></td><td style="white-space:nowrap">' + esc(lahirTxt(t)) + '</td><td>' + esc(t.kategori) + '</td><td>' + esc(t.bidang) + '</td><td>' + esc(t.kecamatan) + '</td><td>' + (i + 1) + '</td>' +
+        return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(t.nama) + '</b></td><td style="white-space:nowrap">' + esc(lahirTxt(t)) + '</td><td>' + esc(t.kategori) + '</td><td>' + esc(t.bidang) + '</td><td>' + esc(t.kecamatan) + '</td>' +
           '<td style="white-space:nowrap">' + (isSuper() ? '<span class="rowact"><button class="btn btn-sm btn-ico" data-e="' + esc(t.no_id) + '" title="Ubah" aria-label="Ubah">' + ic('edit') + '</button><button class="btn btn-sm btn-ico" data-r="' + esc(t.no_id) + '" title="Reset PIN" aria-label="Reset PIN">' + ic('key') + '</button><button class="btn btn-sm btn-ico btn-danger" data-d="' + esc(t.no_id) + '" title="Hapus" aria-label="Hapus">' + ic('trash') + '</button></span>' : '') + '</td></tr>';
       }));
     $$('#tb [data-e]').forEach(function (b) { b.onclick = function () { tenagaForm(S.tenaga.filter(function (t) { return t.no_id === b.getAttribute('data-e'); })[0]); }; });
