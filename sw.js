@@ -1,6 +1,6 @@
 /* e-Outsourcing: simpan berkas aplikasi di perangkat. Buka berikutnya langsung tampil dari cache;
  * versi terbaru diambil di latar belakang dan dipakai pada pembukaan berikutnya. Panggilan API (host lain) tidak disentuh. */
-var V = 'eo-shell-4';
+var V = 'eo-shell-5';
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (ks) {
