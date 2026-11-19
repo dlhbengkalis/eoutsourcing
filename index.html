@@ -689,16 +689,18 @@ function api(fn) {
 }
 /* Cache riwayat tenaga (per bulan): menu Laporan/Riwayat tampil seketika dari cache, lalu disegarkan di latar belakang
  * bila data > 30 dtk. Dikosongkan setiap tenaga menyimpan presensi/laporan dan saat keluar. */
-var RWC = {};
+var RWC = {}, RWP = {};
 function rwGet(ym, cb) {
   var c = RWC[ym];
   if (c) cb(JSON.parse(c.j));
   if (c && Date.now() - c.t < 30000) return Promise.resolve();
-  return apiRaw('apiRiwayat', [ym]).then(function (d) {
-    var j = JSON.stringify(d), changed = !c || c.j !== j;
-    RWC[ym] = { t: Date.now(), j: j };
-    if (changed) cb(d);
-  }).catch(function (e) { if (!c) throw e; });
+  var p = RWP[ym]; // permintaan yang sedang berjalan dipakai bersama (prefetch + klik menu tidak menggandakan panggilan)
+  if (!p) {
+    p = RWP[ym] = apiRaw('apiRiwayat', [ym]).then(function (d) {
+      RWC[ym] = { t: Date.now(), j: JSON.stringify(d) }; delete RWP[ym]; return d;
+    }, function (e) { delete RWP[ym]; throw e; });
+  }
+  return p.then(function (d) { if (!c || c.j !== JSON.stringify(d)) cb(d); }).catch(function (e) { if (!c) throw e; });
 }
 function busy(fn, msg) {
   loading(true, msg);
@@ -969,8 +971,8 @@ function boot(pre) {
     if (S.user.wajib_ganti) { forceChange(); return; } // wajib ganti PIN/password dulu, baru tampilan dimuat
     if (S.role === 'admin') renderAdmin(); else {
       renderTenaga();
-      // isi cache riwayat bulan ini di latar belakang (dengan jeda acak agar tidak menumpuk saat banyak yang login bersamaan)
-      setTimeout(function () { if (S.token) rwGet(dateIso().substr(0, 7), function () {}).catch(function () {}); }, 2500 + Math.random() * 4000);
+      // isi cache riwayat bulan ini di latar belakang (jeda acak singkat agar tidak menumpuk saat banyak yang login bersamaan)
+      setTimeout(function () { if (S.token) rwGet(dateIso().substr(0, 7), function () {}).catch(function () {}); }, 300 + Math.random() * 1200);
     }
   }).catch(function (e) { if (e.code !== 'AUTH') { onErr(e); renderLogin(); } });
 }
@@ -2077,6 +2079,8 @@ function fitW() {
 }
 fitW(); addEventListener('resize', fitW); addEventListener('orientationchange', function () { setTimeout(fitW, 350); });
 
+// Simpan aplikasi di perangkat (hanya di GitHub Pages): pembukaan berikutnya instan, versi baru dimuat di latar belakang
+try { if ('serviceWorker' in navigator && /\.github\.io$/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) { /* abaikan */ }
 var saved = store('eo_token');
 if (saved) { S.token = saved; boot(); } else renderLogin();
 
