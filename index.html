@@ -581,6 +581,10 @@ body{background:#dfe7f5}
 html.vwfix .bottomnav.t2-nav{left:50%;right:auto}
 html.vwfix .bottomnav.t2-nav{width:min(456px,calc(var(--vw) - 20px))!important}
 html.vwfix #app.tenaga{max-width:var(--vw)}
+.lrow{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed #dde6f5}
+.lrow:last-child{border-bottom:0}
+.lrow>input{flex:none;margin-top:3px}
+.lrow>div{min-width:0;overflow-wrap:anywhere}
 </style>
 
   <title>e-Outsourcing DLH Kab. Bengkalis</title>
@@ -1645,7 +1649,18 @@ function filterBar(f, kind) {
     (kind === 'pres' ? '<div><label>Verifikasi</label><select id="f_verif">' + optsHtml(['Menunggu', 'Valid', 'Tidak Valid'], f.verifikasi, 'Semua') + '</select></div>' +
       '<div><label><input type="checkbox" id="f_flag"' + (f.flag ? ' checked' : '') + '> Hanya bertanda ⚠️</label></div>'
       : '<div><label>Jenis pekerjaan</label><select id="f_jenis">' + optsHtml(S.opsi.jenis_pekerjaan, f.jenis, 'Semua') + '</select></div>') +
-    '<div><label>Cari</label><input id="f_q" value="' + esc(f.q) + '" placeholder="Nama / No. ID"></div><div><button class="btn btn-primary btn-block" id="f_go">Tampilkan</button></div></div>';
+    '<div><label>Cari</label><input id="f_q" value="' + esc(f.q) + '" placeholder="Nama / No. ID"></div></div>';
+}
+/* Muat ulang otomatis setiap filter berubah (kolom cari ditunda 350 ms agar tidak berulang-ulang) */
+function autoFilter(load) {
+  var t = null;
+  $$('.filters input, .filters select').forEach(function (el) {
+    var typing = el.id === 'f_q';
+    el.addEventListener(typing ? 'input' : 'change', function () {
+      clearTimeout(t);
+      t = setTimeout(load, typing ? 350 : 0);
+    });
+  });
 }
 function readFilter(f, kind) {
   f.dari = $('#f_dari').value; f.sampai = $('#f_sampai').value; f.bidang = $('#f_bidang').value; f.kategori = $('#f_kat').value; f.status = $('#f_status').value; f.q = $('#f_q').value;
@@ -1683,7 +1698,7 @@ function aPresensi() {
       askText('Tandai TIDAK VALID (' + ids.length + ' data)', 'Catatan / alasan (wajib)', true).then(function (c) { if (c !== null) busy(function () { return api('apiPresensiVerif', ids, 'Tidak Valid', c); }).then(function () { toast('Diperbarui.', 'ok'); load(); }).catch(onErr); });
     };
   }
-  $('#f_go').onclick = load;
+  autoFilter(load);
   if ($('#pm')) $('#pm').onclick = function () { presKoreksi(null, load); };
   var HD = ['tanggal', 'no_id', 'nama', 'bidang', 'status', 'jam_masuk', 'lat_masuk', 'lng_masuk', 'akurasi_masuk', 'jarak_masuk', 'jam_pulang', 'lat_pulang', 'lng_pulang', 'akurasi_pulang', 'jarak_pulang', 'flag', 'ket', 'verifikasi', 'catatan_admin'];
   $('#exx').onclick = function () { downloadXlsx('presensi_' + f.dari + '_' + f.sampai + '.xlsx', 'Presensi', HD, data.map(function (r) { return HD.map(function (h) { return r[h]; }); })); };
@@ -1757,14 +1772,27 @@ function aLaporan() {
   function draw(total) {
     var h = '<div class="row mb"><small class="muted">' + total + ' laporan' + (total > data.length ? ' (ditampilkan ' + data.length + ' terbaru)' : '') + '</small><span class="spacer"></span>' +
       (canVerif() ? '<button class="btn btn-sm" id="bs">✔ Setujui</button><button class="btn btn-sm" id="bp">↩ Perlu perbaikan</button><button class="btn btn-sm btn-danger" id="bd">✖ Tolak</button>' : '') + '</div>';
-    h += tbl(['<>', 'Tanggal', 'Nama', 'Jenis pekerjaan', 'Uraian', 'Volume', 'Foto', 'Status'], data.map(function (r, i) {
-      var nf = String(r.foto || '').split(',').filter(String).length;
-      return '<tr><td><input type="checkbox" class="ck" value="' + esc(r.id) + '"></td><td>' + esc(tglId(r.tanggal)) + '<br><small>' + esc(r.waktu.substr(0, 5)) + '</small></td><td><a href="#" data-i="' + i + '"><b>' + esc(r.nama) + '</b></a><br><small>' + esc(r.bidang) + '</small></td><td>' + esc(r.jenis_pekerjaan) + '</td>' +
-        '<td>' + esc(r.uraian.length > 140 ? r.uraian.substr(0, 140) + '…' : r.uraian) + '</td><td>' + (r.volume ? esc(r.volume + ' ' + r.satuan) : '-') + '</td><td>' + (nf ? '📷 ' + nf : '-') + '</td><td>' + stBadge(r.status) + '</td></tr>';
-    }));
+    var groups = [], gi = {};
+    data.forEach(function (r, i) {
+      var g = gi[r.no_id];
+      if (g === undefined) { g = gi[r.no_id] = groups.length; groups.push({ no_id: r.no_id, nama: r.nama, bidang: r.bidang, items: [] }); }
+      groups[g].items.push({ r: r, i: i });
+    });
+    groups.forEach(function (g) { g.items.sort(function (x, y) { return (x.r.tanggal + x.r.waktu) < (y.r.tanggal + y.r.waktu) ? -1 : 1; }); });
+    h += tbl(['<>', 'Tenaga', 'Rincian laporan'], groups.map(function (g) {
+      return '<tr><td><input type="checkbox" class="ckg" title="Pilih semua laporan tenaga ini"></td>' +
+        '<td style="min-width:150px"><b>' + esc(g.nama) + '</b><br><small>' + esc(g.no_id) + ' · ' + esc(g.bidang) + '</small><br><span class="badge b-info">' + g.items.length + ' laporan</span></td>' +
+        '<td>' + g.items.map(function (x) {
+          var r = x.r, nf = String(r.foto || '').split(',').filter(String).length;
+          return '<div class="lrow"><input type="checkbox" class="ck" value="' + esc(r.id) + '"><div><a href="#" data-i="' + x.i + '"><b>' + esc(r.jenis_pekerjaan) + '</b></a> ' + stBadge(r.status) +
+            '<br><small>' + esc(tglId(r.tanggal)) + ' ' + esc(r.waktu.substr(0, 5)) + (r.volume ? ' · Volume ' + esc(r.volume + ' ' + r.satuan) : '') + (nf ? ' · 📷 ' + nf : '') + '</small>' +
+            '<div>' + esc(r.uraian.length > 200 ? r.uraian.substr(0, 200) + '…' : r.uraian) + '</div></div></div>';
+        }).join('') + '</td></tr>';
+    }), 'Tidak ada laporan pada filter ini.');
     $('#res').innerHTML = h;
     var ths = $$('#res th'); if (ths[0]) ths[0].innerHTML = '<input type="checkbox" id="ckall">';
-    if ($('#ckall')) $('#ckall').onchange = function () { var c = this.checked; $$('#res .ck').forEach(function (x) { x.checked = c; }); };
+    if ($('#ckall')) $('#ckall').onchange = function () { var c = this.checked; $$('#res .ck, #res .ckg').forEach(function (x) { x.checked = c; }); };
+    $$('#res .ckg').forEach(function (g) { g.onchange = function () { var c = g.checked; $$('.ck', g.closest('tr')).forEach(function (x) { x.checked = c; }); }; });
     $$('#res [data-i]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); lapDetail(data[+a.getAttribute('data-i')], load); }; });
     function sel() { var ids = $$('#res .ck:checked').map(function (x) { return x.value; }); if (!ids.length) toast('Pilih data terlebih dahulu.', 'err'); return ids; }
     function bulk(status, needNote) {
@@ -1775,7 +1803,7 @@ function aLaporan() {
     }
     if ($('#bs')) { $('#bs').onclick = function () { bulk('Disetujui', false); }; $('#bp').onclick = function () { bulk('Perlu Perbaikan', true); }; $('#bd').onclick = function () { bulk('Ditolak', true); }; }
   }
-  $('#f_go').onclick = load;
+  autoFilter(load);
   var HD = ['tanggal', 'waktu', 'no_id', 'nama', 'bidang', 'jenis_pekerjaan', 'uraian', 'volume', 'satuan', 'lat', 'lng', 'status', 'catatan_admin'];
   $('#exx').onclick = function () { downloadXlsx('laporan_' + f.dari + '_' + f.sampai + '.xlsx', 'Laporan', HD, data.map(function (r) { return HD.map(function (h) { return r[h]; }); })); };
   $('#prt').onclick = function () {
@@ -1805,7 +1833,7 @@ function lapDetail(r, reload) {
 function aRekap() {
   var f = AF.rekap, v = $('#view'), res = null;
   v.innerHTML = '<div class="row mb"><h2 style="margin:0">Rekap Bulanan</h2><span class="spacer"></span><button class="btn btn-sm" id="exx">' + ic('download') + ' XLSX</button><button class="btn btn-sm" id="prt">' + ic('printer') + ' Cetak / PDF</button></div>' +
-    '<div class="filters"><div><label>Periode</label><input type="month" id="r_ym" value="' + esc(f.ym) + '"></div><div><label>Bidang</label><select id="r_b">' + optsHtml(S.opsi.bidang, f.bidang, 'Semua') + '</select></div><div><label>Kategori</label><select id="r_k">' + optsHtml(S.opsi.kategori, f.kategori, 'Semua') + '</select></div><div><button class="btn btn-primary btn-block" id="r_go">Tampilkan</button></div></div><div id="res"></div>';
+    '<div class="filters"><div><label>Periode</label><input type="month" id="r_ym" value="' + esc(f.ym) + '"></div><div><label>Bidang</label><select id="r_b">' + optsHtml(S.opsi.bidang, f.bidang, 'Semua') + '</select></div><div><label>Kategori</label><select id="r_k">' + optsHtml(S.opsi.kategori, f.kategori, 'Semua') + '</select></div></div><div id="res"></div>';
   var H = ['No', 'No. ID', 'Nama', 'Bidang', 'Hadir', 'Terlambat', 'Izin', 'Sakit', 'Dinas', 'Alpha', 'Tdk valid', 'Jam kerja', '% Hadir', 'Laporan', 'Disetujui'];
   function rowsOf() { return res.rows.map(function (r, i) { return [i + 1, r.no_id, r.nama, r.bidang, r.hadir, r.terlambat, r.izin, r.sakit, r.dinas, r.alpha, r.tidak_valid, r.jam_kerja, r.persen + '%', r.laporan, r.laporan_setuju]; }); }
   function load() {
@@ -1843,7 +1871,7 @@ function aRekap() {
       }).catch(function (e2) { $('#vol').innerHTML = '<div class="empty">' + esc(e2.message) + '</div>'; });
     }).catch(onErr);
   }
-  $('#r_go').onclick = load;
+  autoFilter(load);
   $('#exx').onclick = function () { if (res) downloadXlsx('rekap_' + res.periode + '.xlsx', 'Rekap', H, rowsOf()); };
   $('#prt').onclick = function () {
     if (!res) return;
